@@ -83,6 +83,21 @@
             z-index: 999;
             display: none; /* 預設隱藏 */
         }
+        /* Loading Spinner CSS */
+        .loader {
+            border: 4px solid #f3f3f3; /* Light grey */
+            border-top: 4px solid #3B82F6; /* Blue */
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 1rem auto; /* 置中 */
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -138,6 +153,7 @@
     <div id="messageBox" class="message-box">
         <h3 id="messageTitle" class="text-xl font-bold mb-4"></h3>
         <p id="messageContent" class="mb-6"></p>
+        <div id="messageSpinner" class="loader hidden"></div> <!-- 新增的載入動畫元素 -->
         <div class="flex justify-center"> <!-- 新增的 div 元素用於置中按鈕 -->
             <button id="closeMessageBox" class="btn-primary px-6 py-2 bg-red-500 hover:bg-red-600">確定</button>
         </div>
@@ -166,6 +182,7 @@
         const messageTitle = document.getElementById('messageTitle');
         const messageContent = document.getElementById('messageContent');
         const closeMessageBox = document.getElementById('closeMessageBox');
+        const messageSpinner = document.getElementById('messageSpinner'); // 獲取載入動畫元素
 
         let flatpickrInstance; // 宣告 Flatpickr 實例變數
 
@@ -176,11 +193,19 @@
             messageContent.textContent = content;
             messageOverlay.style.display = 'block';
             messageBox.style.display = 'block';
+            
             // 根據 showCloseButton 參數顯示或隱藏按鈕
             if (showCloseButton) {
                 closeMessageBox.style.display = 'block';
             } else {
                 closeMessageBox.style.display = 'none';
+            }
+
+            // 判斷是否顯示載入動畫
+            if (title === '載入中...' || title === '提交中...' || title === '載入店家中...') { // <-- 新增 '載入店家中...'
+                messageSpinner.classList.remove('hidden'); // 顯示載入動畫
+            } else {
+                messageSpinner.classList.add('hidden'); // 隱藏載入動畫
             }
         }
 
@@ -188,6 +213,7 @@
         function hideMessageBox() {
             messageOverlay.style.display = 'none';
             messageBox.style.display = 'none';
+            messageSpinner.classList.add('hidden'); // 隱藏載入動畫
         }
 
         // 關閉彈窗按鈕事件
@@ -213,7 +239,10 @@
 
         // 載入店家列表到下拉選單
         async function loadStoreList() {
-            storeSelect.innerHTML = '<option value="">-- 載入店家中... --</option>';
+            // 顯示載入訊息，隱藏確定按鈕，並顯示載入動畫
+            showMessageBox('載入店家中...', '正在載入店家列表，請稍候...', false); // <-- 新增此行
+
+            storeSelect.innerHTML = '<option value="">-- 載入店家中... --</option>'; // 保持這個，因為它在訊息框出現前就更新了
             try {
                 const response = await fetch(`${GOOGLE_APPS_SCRIPT_WEB_APP_URL}?action=getAllStoresStatus`, {
                     credentials: 'omit'
@@ -232,6 +261,7 @@
                             storeSelect.appendChild(option);
                         });
                     }
+                    hideMessageBox(); // <-- 載入成功後隱藏訊息框
                 } else {
                     showMessageBox('載入店家列表失敗', result.message || '無法載入店家列表。');
                     storeSelect.innerHTML = '<option value="">載入失敗</option>';
@@ -240,6 +270,10 @@
                 console.error('載入店家列表時發生錯誤:', error);
                 showMessageBox('網路錯誤', `無法載入店家列表，請檢查網路或 Apps Script：${error.message}`);
                 storeSelect.innerHTML = '<option value="">載入錯誤</option>';
+            } finally {
+                // 確保無論成功或失敗，載入訊息都會被隱藏
+                // 這裡不需要額外判斷，因為 showMessageBox 會處理 spinner 的顯示
+                // 並且成功或失敗的 showMessageBox 會覆蓋 '載入店家中...' 的狀態
             }
         }
 
@@ -247,6 +281,9 @@
         storeSelect.addEventListener('change', async () => {
             const selectedStoreName = storeSelect.value;
             if (selectedStoreName) {
+                // 顯示載入訊息，隱藏確定按鈕，並顯示載入動畫
+                showMessageBox('載入中...', '正在搜尋店家資訊，請稍候...', false); 
+
                 try {
                     const response = await fetch(`${GOOGLE_APPS_SCRIPT_WEB_APP_URL}?action=getStoreDetailsForEdit&storeName=${encodeURIComponent(selectedStoreName)}`, {
                         credentials: 'omit'
@@ -280,7 +317,7 @@
                             const holidaysArray = result.store.holidays ? result.store.holidays.split(',').map(date => date.trim()) : [];
                             flatpickrInstance.setDate(holidaysArray, true); // true 表示不觸發 onChange 事件
                         }
-
+                        hideMessageBox(); // <-- 載入成功後隱藏訊息框
                     } else {
                         showMessageBox('載入店家資訊失敗', result.message || '無法載入店家詳細資訊。');
                         // 清空顯示並隱藏行
@@ -297,13 +334,16 @@
                 } catch (error) {
                     console.error('載入店家詳細資訊時發生錯誤:', error);
                     showMessageBox('網路錯誤', `無法載入店家詳細資訊，請檢查網路或 Apps Script：${error.message}`);
+                } finally {
+                    // 確保無論成功或失敗，載入訊息都會被隱藏
+                    // 這裡不需要額外判斷，因為 showMessageBox 會處理 spinner 的顯示
+                    // 並且成功或失敗的 showMessageBox 會覆蓋 '載入中...' 的狀態
                 }
             } else {
                 // 未選擇店家時清空顯示並隱藏行
                 displayStoreName.textContent = 'N/A';
                 displayContact.textContent = '';
                 contactRow.classList.add('hidden');
-                displayOperatingHours.textContent = '';
                 operatingHoursRow.classList.add('hidden');
                 displayCurrentHolidays.textContent = 'N/A';
                 if (flatpickrInstance) {
@@ -324,7 +364,7 @@
             }
 
             // 顯示載入訊息，並隱藏確定按鈕
-            showMessageBox('提交中...', '您的休假資訊正在更新中，請稍候...', false); // <-- 這裡傳入 false
+            showMessageBox('提交中...', '您的休假資訊正在更新中，請稍候...', false); 
             updateHolidaysBtn.disabled = true;
 
             try {
@@ -345,14 +385,14 @@
                 console.log('Fetch response type:', response.type);
                 console.log('Fetch response status:', response.status);
 
-                showMessageBox('更新成功！', `店家 ${selectedStoreName} 的休假日期已成功更新！`); // 這裡會使用預設的 showCloseButton = true
+                showMessageBox('更新成功！', `店家 ${selectedStoreName} 的休假日期已成功更新！`); 
                 // 更新成功後，重新載入該店家的資訊以顯示最新狀態
                 // 觸發 change 事件會重新從 Apps Script 獲取資料並更新顯示
                 storeSelect.dispatchEvent(new Event('change')); 
 
             } catch (error) {
                 console.error('更新休假日期時發生錯誤:', error);
-                showMessageBox('網路錯誤', error.message || '無法連接伺服器，請檢查您的網路連線或稍後再試。'); // 這裡會使用預設的 showCloseButton = true
+                showMessageBox('網路錯誤', error.message || '無法連接伺服器，請檢查您的網路連線或稍後再試。'); 
             } finally {
                 updateHolidaysBtn.disabled = false;
             }

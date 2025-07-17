@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">      
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>園區店家營業狀況總覽</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F3F4F6; /* 淺灰色背景 */
+        }
+        .card {
+            background-color: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+        }
+        .status-open {
+            color: #10B981; /* 綠色 */
+            font-weight: 600;
+        }
+        .status-closed {
+            color: #EF4444; /* 紅色 */
+            font-weight: 600;
+        }
+        .message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            text-align: center;
+            display: none; /* 預設隱藏 */
+            max-width: 90%;
+            width: 400px;
+        }
+        .message-box-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            display: none; /* 預設隱藏 */
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-6 md:p-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+            <svg class="w-6 h-6 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m-1 4h1m-4-4h1m-1 4h1m-1 4h1m-4-4h1m-1 4h1"></path></svg>
+            園區店家營業狀況總覽
+        </h2>
+
+        <div class="mb-4 text-gray-600">
+            <p id="currentDateDisplay"></p>
+        </div>
+
+        <div id="storesStatusContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <p class="text-gray-500">載入店家狀況中...</p>
+        </div>
+
+        <div class="mt-8 text-center">
+            <button id="refreshStatusBtn" class="btn-primary px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-md transition duration-200">
+                <svg class="inline-block w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356-2A8.001 8.001 0 004 16.001V12m6.5-7.5h7.418M19 4v5h.582M4 16.001V12m6.5 4.5h7.418"></path></svg>
+                重新整理
+            </button>
+        </div>
+    </div>
+
+    <!-- 訊息彈窗 -->
+    <div id="messageOverlay" class="message-box-overlay"></div>
+    <div id="messageBox" class="message-box">
+        <h3 id="messageTitle" class="text-xl font-bold mb-4"></h3>
+        <p id="messageContent" class="mb-6"></p>
+        <button id="closeMessageBox" class="btn-primary px-6 py-2 bg-red-500 hover:bg-red-600">確定</button>
+    </div>
+
+    <script>
+        // 請將此變數替換為您部署的 Google Apps Script Web App URL
+        const GOOGLE_APPS_SCRIPT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxVA6VzuA3T7BClqkZlhfxdMbBXECkJaUgURIi9x-4S5OuHanaU3QcRbsvXuvIkwHej/exec'; 
+
+        const storesStatusContainer = document.getElementById('storesStatusContainer');
+        const refreshStatusBtn = document.getElementById('refreshStatusBtn');
+        const currentDateDisplay = document.getElementById('currentDateDisplay');
+
+        const messageBox = document.getElementById('messageBox');
+        const messageOverlay = document.getElementById('messageOverlay');
+        const messageTitle = document.getElementById('messageTitle');
+        const messageContent = document.getElementById('messageContent');
+        const closeMessageBox = document.getElementById('closeMessageBox');
+
+        // 顯示訊息彈窗
+        function showMessageBox(title, content) {
+            messageTitle.textContent = title;
+            messageContent.textContent = content;
+            messageOverlay.style.display = 'block';
+            messageBox.style.display = 'block';
+        }
+
+        // 隱藏訊息彈窗
+        function hideMessageBox() {
+            messageOverlay.style.display = 'none';
+            messageBox.style.display = 'none';
+        }
+
+        // 關閉彈窗按鈕事件
+        closeMessageBox.addEventListener('click', hideMessageBox);
+
+        // 顯示當前日期
+        function displayCurrentDate() {
+            const today = new Date();
+            const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
+            currentDateDisplay.textContent = `今日日期：${today.toLocaleDateString('zh-TW', options)}`;
+        }
+
+        // 載入所有店家營業狀況
+        async function loadAllStoresStatus() {
+            storesStatusContainer.innerHTML = '<p class="text-gray-500">載入店家狀況中...</p>';
+            try {
+                const response = await fetch(`${GOOGLE_APPS_SCRIPT_WEB_APP_URL}?action=getAllStoresStatus`, {
+                    credentials: 'omit'
+                });
+                
+                const responseText = await response.text();
+                console.log('getAllStoresStatus 原始響應文本:', responseText);
+
+                let result;
+                try {
+                    result = JSON.parse(responseText);
+                } catch (jsonError) {
+                    throw new Error(`Apps Script 返回的店家資料不是有效的 JSON。原始響應: ${responseText.substring(0, 200)}...`);
+                }
+
+                if (response.ok && result.status === 'success' && result.stores) {
+                    storesStatusContainer.innerHTML = '';
+                    if (result.stores.length === 0) {
+                        storesStatusContainer.innerHTML = '<p class="text-gray-500">目前沒有店家資料。</p>';
+                    } else {
+                        result.stores.forEach(store => {
+                            const storeCard = document.createElement('div');
+                            storeCard.classList.add('card', 'p-4', 'flex', 'flex-col', 'gap-2');
+
+                            const nameElement = document.createElement('p');
+                            nameElement.classList.add('text-lg', 'font-semibold', 'text-gray-800');
+                            nameElement.textContent = store.name;
+
+                            const statusElement = document.createElement('p');
+                            statusElement.classList.add('text-md', 'font-medium');
+                            if (store.status === '營業中') {
+                                statusElement.classList.add('status-open');
+                            } else {
+                                statusElement.classList.add('status-closed');
+                            }
+                            statusElement.textContent = `狀態：${store.status}`;
+
+                            storeCard.appendChild(nameElement);
+                            storeCard.appendChild(statusElement);
+                            storesStatusContainer.appendChild(storeCard);
+                        });
+                    }
+                } else {
+                    showMessageBox('載入店家狀況失敗', result.message || '無法載入店家營業狀況。');
+                    storesStatusContainer.innerHTML = `<p class="text-red-500">${result.message || '載入店家狀況失敗'}</p>`;
+                }
+            } catch (error) {
+                console.error('載入店家狀況時發生錯誤:', error);
+                showMessageBox('網路錯誤', `無法載入店家狀況，請檢查網路或 Apps Script：${error.message}`);
+                storesStatusContainer.innerHTML = `<p class="text-red-500">載入錯誤: ${error.message}</p>`;
+            }
+        }
+
+        // 事件監聽器
+        refreshStatusBtn.addEventListener('click', loadAllStoresStatus);
+
+        // 頁面載入時自動載入
+        document.addEventListener('DOMContentLoaded', () => {
+            displayCurrentDate();
+            loadAllStoresStatus();
+        });
+    </script>
+</body>
+</html>

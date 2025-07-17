@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>店家休假資訊編輯</title>
+    <!-- 引入 Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Flatpickr CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #E0F2F7; /* 淺藍色背景 */
+        }
+        .card {
+            background-color: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+        }
+        .btn-primary {
+            background-color: #3B82F6; /* 藍色按鈕 */
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+        .btn-primary:hover {
+            background-color: #2563EB;
+        }
+        .input-field, .textarea-field, .select-field {
+            border: 1px solid #D1D5DB;
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        /* Flatpickr 樣式覆蓋以符合 Tailwind */
+        .flatpickr-input {
+            border: 1px solid #D1D5DB;
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 1rem;
+        }
+        .section-title svg {
+            color: #3B82F6; /* 藍色圖標 */
+        }
+        .message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            text-align: center;
+            display: none; /* 預設隱藏 */
+            max-width: 90%;
+            width: 400px;
+        }
+        .message-box-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            display: none; /* 預設隱藏 */
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-6 md:p-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+            <svg class="w-6 h-6 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+            店家休假資訊編輯
+        </h2>
+
+        <!-- 店家選擇/輸入 -->
+        <div class="mb-6">
+            <label for="storeSelect" class="section-title mb-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"></path></svg>
+                選擇您的店家
+            </label>
+            <select id="storeSelect" class="select-field" required>
+                <option value="">-- 請選擇店家 --</option>
+                <!-- 店家列表將在這裡動態載入 -->
+            </select>
+            <p class="text-sm text-gray-500 mt-2">如果您找不到您的店家，請聯繫管理員新增。</p>
+        </div>
+
+        <!-- 店家詳細資訊 (只讀，用於確認) -->
+        <div class="card p-4 mb-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-2">選定店家資訊</h3>
+            <p class="text-gray-700">店家名稱: <span id="displayStoreName" class="font-semibold">N/A</span></p>
+            <p id="contactRow" class="text-gray-700 hidden">聯絡方式: <span id="displayContact" class="font-semibold"></span></p>
+            <p id="operatingHoursRow" class="text-gray-700 hidden">營業時間: <span id="displayOperatingHours" class="font-semibold"></span></p>
+            <p class="text-gray-700">目前休假日期: <span id="displayCurrentHolidays" class="font-semibold text-red-600">N/A</span></p>
+        </div>
+
+        <!-- 編輯休假日期 (使用 Flatpickr) -->
+        <div class="mb-8">
+            <label for="newHolidaysInput" class="section-title mb-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                編輯休假日期 (可選多個日期)
+            </label>
+            <input type="text" id="newHolidaysInput" placeholder="點擊選擇休假日期" class="flatpickr-input" required>
+            <p class="text-sm text-gray-500 mt-2">請點擊日期選擇器，選擇您要休假的日期。</p>
+        </div>
+
+        <!-- 送出按鈕 -->
+        <div class="text-center">
+            <button id="updateHolidaysBtn" class="btn-primary w-full md:w-auto">
+                <svg class="inline-block w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                更新休假日期
+            </button>
+        </div>
+    </div>
+
+    <!-- 訊息彈窗 -->
+    <div id="messageOverlay" class="message-box-overlay"></div>
+    <div id="messageBox" class="message-box">
+        <h3 id="messageTitle" class="text-xl font-bold mb-4"></h3>
+        <p id="messageContent" class="mb-6"></p>
+        <button id="closeMessageBox" class="btn-primary px-6 py-2 bg-red-500 hover:bg-red-600">確定</button>
+    </div>
+
+    <!-- Flatpickr JS -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/zh-tw.js"></script> <!-- 繁體中文語系 -->
+
+    <script>
+        // 請將此變數替換為您部署的 Google Apps Script Web App URL
+        const GOOGLE_APPS_SCRIPT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxVA6VzuA3T7BClqkZlhfxdMbBXECkJaUgURIi9x-4S5OuHanaU3QcRbsvXuvIkwHej/exec'; 
+
+        const storeSelect = document.getElementById('storeSelect');
+        const displayStoreName = document.getElementById('displayStoreName');
+        const contactRow = document.getElementById('contactRow'); // 聯絡方式的行
+        const displayContact = document.getElementById('displayContact');
+        const operatingHoursRow = document.getElementById('operatingHoursRow'); // 營業時間的行
+        const displayOperatingHours = document.getElementById('displayOperatingHours');
+        const displayCurrentHolidays = document.getElementById('displayCurrentHolidays');
+        const newHolidaysInput = document.getElementById('newHolidaysInput'); // 這是 Flatpickr 的目標 input
+        const updateHolidaysBtn = document.getElementById('updateHolidaysBtn');
+
+        const messageBox = document.getElementById('messageBox');
+        const messageOverlay = document.getElementById('messageOverlay');
+        const messageTitle = document.getElementById('messageTitle');
+        const messageContent = document.getElementById('messageContent');
+        const closeMessageBox = document.getElementById('closeMessageBox');
+
+        let flatpickrInstance; // 宣告 Flatpickr 實例變數
+
+        // 顯示訊息彈窗
+        // 新增 showCloseButton 參數，預設為 true
+        function showMessageBox(title, content, showCloseButton = true) {
+            messageTitle.textContent = title;
+            messageContent.textContent = content;
+            messageOverlay.style.display = 'block';
+            messageBox.style.display = 'block';
+            // 根據 showCloseButton 參數顯示或隱藏按鈕
+            if (showCloseButton) {
+                closeMessageBox.style.display = 'block';
+            } else {
+                closeMessageBox.style.display = 'none';
+            }
+        }
+
+        // 隱藏訊息彈窗
+        function hideMessageBox() {
+            messageOverlay.style.display = 'none';
+            messageBox.style.display = 'none';
+        }
+
+        // 關閉彈窗按鈕事件
+        closeMessageBox.addEventListener('click', hideMessageBox);
+
+        // 初始化 Flatpickr
+        function initializeFlatpickr() {
+            if (flatpickrInstance) {
+                flatpickrInstance.destroy(); // 如果已經存在，先銷毀舊實例
+            }
+            flatpickrInstance = flatpickr(newHolidaysInput, {
+                mode: "multiple", // 允許選擇多個日期
+                dateFormat: "Y-m-d", // 日期格式為 YYYY-MM-DD
+                locale: "zh-tw", // 設定為繁體中文
+                conjunction: ", ", // 多個日期之間的連接符號
+                // 當日期被選中或清除時的回調
+                onChange: function(selectedDates, dateStr, instance) {
+                    // dateStr 會自動是 YYYY-MM-DD, YYYY-MM-DD 格式
+                    // 這個值會直接用作 newHolidaysInput.value
+                }
+            });
+        }
+
+        // 載入店家列表到下拉選單
+        async function loadStoreList() {
+            storeSelect.innerHTML = '<option value="">-- 載入店家中... --</option>';
+            try {
+                const response = await fetch(`${GOOGLE_APPS_SCRIPT_WEB_APP_URL}?action=getAllStoresStatus`, {
+                    credentials: 'omit'
+                });
+                const result = await response.json();
+
+                if (result.status === 'success' && result.stores) {
+                    storeSelect.innerHTML = '<option value="">-- 請選擇店家 --</option>';
+                    if (result.stores.length === 0) {
+                        storeSelect.innerHTML = '<option value="">目前沒有可供選擇的店家。</option>';
+                    } else {
+                        result.stores.forEach(store => {
+                            const option = document.createElement('option');
+                            option.value = store.name;
+                            option.textContent = store.name;
+                            storeSelect.appendChild(option);
+                        });
+                    }
+                } else {
+                    showMessageBox('載入店家列表失敗', result.message || '無法載入店家列表。');
+                    storeSelect.innerHTML = '<option value="">載入失敗</option>';
+                }
+            } catch (error) {
+                console.error('載入店家列表時發生錯誤:', error);
+                showMessageBox('網路錯誤', `無法載入店家列表，請檢查網路或 Apps Script：${error.message}`);
+                storeSelect.innerHTML = '<option value="">載入錯誤</option>';
+            }
+        }
+
+        // 根據選擇的店家載入詳細資訊
+        storeSelect.addEventListener('change', async () => {
+            const selectedStoreName = storeSelect.value;
+            if (selectedStoreName) {
+                try {
+                    const response = await fetch(`${GOOGLE_APPS_SCRIPT_WEB_APP_URL}?action=getStoreDetailsForEdit&storeName=${encodeURIComponent(selectedStoreName)}`, {
+                        credentials: 'omit'
+                    });
+                    const result = await response.json();
+
+                    if (result.status === 'success' && result.store) {
+                        displayStoreName.textContent = result.store.name;
+                        
+                        // 聯絡方式和營業時間的條件顯示
+                        if (result.store.contact) {
+                            displayContact.textContent = result.store.contact;
+                            contactRow.classList.remove('hidden');
+                        } else {
+                            displayContact.textContent = '';
+                            contactRow.classList.add('hidden');
+                        }
+
+                        if (result.store.operatingHours) {
+                            displayOperatingHours.textContent = result.store.operatingHours;
+                            operatingHoursRow.classList.remove('hidden');
+                        } else {
+                            displayOperatingHours.textContent = '';
+                            operatingHoursRow.classList.add('hidden');
+                        }
+
+                        displayCurrentHolidays.textContent = result.store.holidays || '無';
+                        
+                        // 將目前的休假日期設定到 Flatpickr
+                        if (flatpickrInstance) {
+                            const holidaysArray = result.store.holidays ? result.store.holidays.split(',').map(date => date.trim()) : [];
+                            flatpickrInstance.setDate(holidaysArray, true); // true 表示不觸發 onChange 事件
+                        }
+
+                    } else {
+                        showMessageBox('載入店家資訊失敗', result.message || '無法載入店家詳細資訊。');
+                        // 清空顯示並隱藏行
+                        displayStoreName.textContent = 'N/A';
+                        displayContact.textContent = '';
+                        contactRow.classList.add('hidden');
+                        displayOperatingHours.textContent = '';
+                        operatingHoursRow.classList.add('hidden');
+                        displayCurrentHolidays.textContent = 'N/A';
+                        if (flatpickrInstance) {
+                            flatpickrInstance.clear(); // 清除 Flatpickr 選中的日期
+                        }
+                    }
+                } catch (error) {
+                    console.error('載入店家詳細資訊時發生錯誤:', error);
+                    showMessageBox('網路錯誤', `無法載入店家詳細資訊，請檢查網路或 Apps Script：${error.message}`);
+                }
+            } else {
+                // 未選擇店家時清空顯示並隱藏行
+                displayStoreName.textContent = 'N/A';
+                displayContact.textContent = '';
+                contactRow.classList.add('hidden');
+                displayOperatingHours.textContent = '';
+                operatingHoursRow.classList.add('hidden');
+                displayCurrentHolidays.textContent = 'N/A';
+                if (flatpickrInstance) {
+                    flatpickrInstance.clear(); // 清除 Flatpickr 選中的日期
+                }
+            }
+        });
+
+        // 更新休假日期
+        updateHolidaysBtn.addEventListener('click', async () => {
+            const selectedStoreName = storeSelect.value;
+            // Flatpickr 會自動將選中的日期格式化並放入 input 的 value 中
+            const newHolidays = newHolidaysInput.value.trim(); 
+
+            if (!selectedStoreName) {
+                showMessageBox('選擇錯誤', '請先選擇您要更新的店家！');
+                return;
+            }
+
+            // 顯示載入訊息，並隱藏確定按鈕
+            showMessageBox('提交中...', '您的休假資訊正在更新中，請稍候...', false); // <-- 這裡傳入 false
+            updateHolidaysBtn.disabled = true;
+
+            try {
+                const formData = new URLSearchParams();
+                formData.append('action', 'updateStoreHolidays');
+                formData.append('storeName', selectedStoreName);
+                formData.append('newHolidays', newHolidays); // Flatpickr 已經處理了格式
+
+                const response = await fetch(GOOGLE_APPS_SCRIPT_WEB_APP_URL, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    mode: 'no-cors' 
+                });
+
+                console.log('Fetch response type:', response.type);
+                console.log('Fetch response status:', response.status);
+
+                showMessageBox('更新成功！', `店家 ${selectedStoreName} 的休假日期已成功更新！`); // 這裡會使用預設的 showCloseButton = true
+                // 更新成功後，重新載入該店家的資訊以顯示最新狀態
+                // 觸發 change 事件會重新從 Apps Script 獲取資料並更新顯示
+                storeSelect.dispatchEvent(new Event('change')); 
+
+            } catch (error) {
+                console.error('更新休假日期時發生錯誤:', error);
+                showMessageBox('網路錯誤', error.message || '無法連接伺服器，請檢查您的網路連線或稍後再試。'); // 這裡會使用預設的 showCloseButton = true
+            } finally {
+                updateHolidaysBtn.disabled = false;
+            }
+        });
+
+        // 頁面載入時自動載入店家列表並初始化 Flatpickr
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeFlatpickr(); // 先初始化 Flatpickr
+            loadStoreList();
+        });
+    </script>
+</body>
+</html>

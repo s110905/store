@@ -68,7 +68,7 @@
             border-radius: 1rem;
             box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
             z-index: 1000;
-            text-align: center;
+            text-align: center; /* 保持原有的置中 */
             display: none; /* 預設隱藏 */
             max-width: 90%;
             width: 400px;
@@ -138,7 +138,9 @@
     <div id="messageBox" class="message-box">
         <h3 id="messageTitle" class="text-xl font-bold mb-4"></h3>
         <p id="messageContent" class="mb-6"></p>
-        <button id="closeMessageBox" class="btn-primary px-6 py-2 bg-red-500 hover:bg-red-600">確定</button>
+        <div class="flex justify-center"> <!-- 新增的 div 元素用於置中按鈕 -->
+            <button id="closeMessageBox" class="btn-primary px-6 py-2 bg-red-500 hover:bg-red-600">確定</button>
+        </div>
     </div>
 
     <!-- Flatpickr JS -->
